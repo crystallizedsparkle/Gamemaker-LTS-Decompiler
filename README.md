@@ -6,7 +6,7 @@ this script was made for the purpose of teaching myself C#.
 
 1. Download and Extract [UndertaleModTool](https://github.com/UnderminersTeam/UndertaleModTool/releases/download/bleeding-edge/GUI-windows-latest-Debug-isBundled-true-isSingleFile-false.zip)
 
-2. Open any Non-YYC data.win file.
+2. Open any Non-YYC & GMS2.3+ data.win file.
 
 3. Open the "Scripts" tab and press "Run other script"
 
