@@ -18,7 +18,7 @@ thats all!
 
 This script was released in an early state because of it being showcased in a public repository of a [pre-release tester](https://github.com/burnedpopcorn), [modified](https://github.com/burnedpopcorn/UnderAnalyzer-Decompiler/blob/1bf409e932ffe8dae3c4affb861df859b7a5901e/UndertaleModTool/Decompiling_Scripts/---%20GMS2%20Decompiling%20---/Ultimate_GMS2_Decompiler_v2.csx) and [without my permission.](https://imgur.com/a/HlrwGE9)
 
-This version has no stolen code from the leaked decompiler!
+This version has no stolen code from Lila's leaked decompiler!
 
 # Find an issue?
 
