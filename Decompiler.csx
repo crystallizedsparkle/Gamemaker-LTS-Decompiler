@@ -2035,7 +2035,7 @@ string GetTexturePageSize()
     int[] sizes = new int[6];
     int[] types = [256, 512, 1024, 2048, 4096, 8192];
     Dictionary<string, int> appearances = new();
-    if (Data.EmbeddedTextures.Count < 0)
+    if (Data.EmbeddedTextures.Count == 0)
         return "2048x2048";
     
     foreach (UndertaleEmbeddedTexture page in Data.EmbeddedTextures)
@@ -2048,10 +2048,13 @@ string GetTexturePageSize()
                 if (appearances.ContainsKey(sizeStr))
                     appearances[sizeStr]++;
                 else
-                    appearances[sizeStr] = 0;
+                    appearances[sizeStr] = 1;
             }
         }
     }
+
+    if (appearances.Count == 0)
+        return "2048x2048";
 
     KeyValuePair<string, int> mostAppeared = appearances.Aggregate((l, r) => l.Value > r.Value ? l : r);
     return mostAppeared.Key;
