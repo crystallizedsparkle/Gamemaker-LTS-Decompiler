@@ -2928,7 +2928,7 @@ void DumpSprite(UndertaleSprite s, int index)
         collisionKind = s.SepMasks switch
         {
             UndertaleSprite.SepMaskType.AxisAlignedRect => 1,
-            UndertaleSprite.SepMaskType.Precise => 4,
+            UndertaleSprite.SepMaskType.Precise => 0,
             UndertaleSprite.SepMaskType.RotatedRect => 5,
         },
         nineSlice = s.V3NineSlice is null ? null : new GMSprite.GMNineSliceData
@@ -2943,6 +2943,11 @@ void DumpSprite(UndertaleSprite s, int index)
         parent = GetParentFolder(GMAssetType.Sprite),
         tags = GetTags(s)
     };
+
+    // precise per frame checking
+    if (dumpedSprite.collisionKind == 0 && s.CollisionMasks.Count > 1)
+        dumpedSprite.collisionKind = 4;
+
 
     // origin calculations
     int originX = s.OriginX;
