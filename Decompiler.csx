@@ -1084,10 +1084,6 @@ public class AssetTextKeyframe : AssetKeyframe
 
 public class GMSpriteFramesTrack : GMBaseTrack
 {
-    public GMSpriteFramesTrack()
-    {
-        name = "frames";
-    }
     public AssetReference spriteId { get; set; }
     public KeyframeStore<SpriteFrameKeyframe> keyframes { get; set; } = new KeyframeStore<SpriteFrameKeyframe>();
     public string name { get; set; } = "frames";
@@ -2915,15 +2911,6 @@ void DumpSprite(UndertaleSprite s, int index)
         bbox_top = s.MarginTop,
         width = (int)s.Width,
         height = (int)s.Height,
-        sequence = new GMSequence(spriteName)
-        {
-            length = s.Textures.Count,
-            xorigin = s.OriginX,
-            yorigin = s.OriginY,
-            playbackSpeed = s.GMS2PlaybackSpeed,
-            playbackSpeedType = (int)s.GMS2PlaybackSpeedType,
-            spriteId = new AssetReference(spriteName, GMAssetType.Sprite),
-        },
         // taken from quantum (thanks)
         collisionKind = s.SepMasks switch
         {
@@ -2944,6 +2931,22 @@ void DumpSprite(UndertaleSprite s, int index)
         tags = GetTags(s)
     };
 
+    if (s.V2Sequence is not null)
+    {
+        dumpedSprite.sequence = SequenceDumper(s.V2Sequence, s);
+    }
+    else
+    {
+        dumpedSprite.sequence = new GMSequence(spriteName)
+        {
+            length = s.Textures.Count,
+            xorigin = s.OriginX,
+            yorigin = s.OriginY,
+            playbackSpeed = s.GMS2PlaybackSpeed,
+            playbackSpeedType = (int)s.GMS2PlaybackSpeedType,
+            spriteId = new AssetReference(spriteName, GMAssetType.Sprite),
+        };
+    }
     // precise per frame checking
     if (dumpedSprite.collisionKind == 0 && s.CollisionMasks.Count > 1)
         dumpedSprite.collisionKind = 4;
@@ -2996,10 +2999,7 @@ void DumpSprite(UndertaleSprite s, int index)
     if (texGroup.name.StartsWith("__YY__")) dumpedSprite.For3D = true;
     else dumpedSprite.textureGroupId = texGroup;
 
-    GMSpriteFramesTrack framesTrack = new()
-    {
-        builtinName = 0
-    };
+    GMSpriteFramesTrack framesTrack = new();
 
     for (int i = 0; i < s.Textures.Count; i++)
     {
@@ -3035,7 +3035,6 @@ void DumpSprite(UndertaleSprite s, int index)
 
         }
 
-
         Keyframe<SpriteFrameKeyframe> currentKeyframe = new()
         {
             Length = 1f,
@@ -3053,7 +3052,19 @@ void DumpSprite(UndertaleSprite s, int index)
 
         framesTrack.keyframes.Keyframes.Add(currentKeyframe);
     }
-    dumpedSprite.sequence.tracks.Add(framesTrack);
+
+    if (s.V2Sequence is not null)
+    {
+        // fix sequence tracks
+        for (int i = 0; i < dumpedSprite.frames.Count; i++)
+        {
+            var frameName = dumpedSprite.frames[i].name;
+            // sprites should only have one track
+            dumpedSprite.sequence.tracks[0].keyframes.Keyframes[i].Channels["0"].Id.name = frameName;
+        }
+    }
+    else
+        dumpedSprite.sequence.tracks.Add(framesTrack);
 
     File.WriteAllText($"{assetDir}{spriteName}.yy", JsonSerializer.Serialize(dumpedSprite, jsonOptions));
     CreateProjectResource(GMAssetType.Sprite, spriteName, index);
@@ -3174,26 +3185,27 @@ async Task DumpFonts()
     PushToLog($"Fonts complete! Took {watch.ElapsedMilliseconds} ms");
 }
 
-void DumpSequence(UndertaleSequence s, int index)
+GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
 {
-    string sequenceName = s.Name.Content;
-    string assetDir = $"{scriptDir}sequences\\{sequenceName}\\";
 
-    Directory.CreateDirectory(assetDir);
+    GMSequence dumpedSequence = new(spr is not null ? spr.Name.Content : s.Name.Content);
+    dumpedSequence.playback = (int)s.Playback;
+    dumpedSequence.playbackSpeed = s.PlaybackSpeed;
+    dumpedSequence.playbackSpeedType = (int)s.PlaybackSpeedType;
+    dumpedSequence.length = s.Length;
+    dumpedSequence.xorigin = s.OriginX;
+    dumpedSequence.yorigin = s.OriginY;
+    dumpedSequence.volume = s.Volume;
 
-    GMSequence dumpedSequence = new(sequenceName)
+    if (spr is not null)
     {
-        playback = (int)s.Playback,
-        playbackSpeed = s.PlaybackSpeed,
-        playbackSpeedType = (int)s.PlaybackSpeedType,
-        length = s.Length,
-        xorigin = s.OriginX,
-        yorigin = s.OriginY,
-        volume = s.Volume,
-        parent = GetParentFolder(GMAssetType.Sequence),
-        tags = GetTags(s)
-    };
-
+        dumpedSequence.parent = GetParentFolder(GMAssetType.Sprite);
+    }
+    else
+    {
+        dumpedSequence.parent = GetParentFolder(GMAssetType.Sequence);
+        dumpedSequence.tags = GetTags(s);
+    }
     // broadcast messages!
     foreach (UndertaleSequence.Keyframe<UndertaleSequence.BroadcastMessage> broadcastMessage in s.BroadcastMessages)
     {
@@ -3206,7 +3218,7 @@ void DumpSequence(UndertaleSequence s, int index)
         };
         foreach (var channel in broadcastMessage.Channels)
         {
-            currentKeyframe.Channels.Add(channel.Key.ToString(), new MessageEventKeyframe() { Events = channel.Value.Messages.Select(message => message.Content).ToArray() });
+            currentKeyframe.Channels.Add(channel.Channel.ToString(), new MessageEventKeyframe() { Events = channel.Value.Messages.Select(message => message.Content).ToArray() });
         }
         dumpedSequence.events.Keyframes.Add(currentKeyframe);
     }
@@ -3214,33 +3226,37 @@ void DumpSequence(UndertaleSequence s, int index)
 
     // moment!!
     string evstubscript = String.Empty;
-    foreach (UndertaleSequence.Keyframe<UndertaleSequence.Moment> moment in s.Moments)
+    if (s.Moments is not null)
     {
-        Keyframe<MomentsEventKeyframe> currentKeyframe = new()
+        foreach (UndertaleSequence.Keyframe<UndertaleSequence.Moment> moment in s.Moments)
         {
-            Key = moment.Key,
-            Length = moment.Length,
-            Stretch = moment.Stretch,
-            Disabled = moment.Disabled
-        };
-        foreach (KeyValuePair<int, UndertaleSequence.Moment> channel in moment.Channels)
-        {
-            MomentsEventKeyframe mom = new();
-            UndertaleString currentEvent = channel.Value.Event;
-            // if it exists
-            if (currentEvent is not null)
+            Keyframe<MomentsEventKeyframe> currentKeyframe = new()
             {
-                UndertaleScript scriptData = Data.Scripts.ByName(currentEvent.Content);
-                // if the script was found
-                if (scriptData is not null)
-                    evstubscript = Regex.Replace(scriptData.Code.ParentEntry.Name.Content, "gml_Script_|gml_GlobalScript_", "");
+                Key = moment.Key,
+                Length = moment.Length,
+                Stretch = moment.Stretch,
+                Disabled = moment.Disabled
+            };
+            foreach (var channel in moment.Channels)
+            {
+                MomentsEventKeyframe mom = new();
+                UndertaleString currentEvent = channel.Value.Event;
+                // if it exists
+                if (currentEvent is not null)
+                {
+                    UndertaleScript scriptData = Data.Scripts.ByName(currentEvent.Content);
+                    // if the script was found
+                    if (scriptData is not null)
+                        evstubscript = Regex.Replace(scriptData.Code.ParentEntry.Name.Content, "gml_Script_|gml_GlobalScript_", "");
 
-                mom.Events.Add(Regex.Replace(currentEvent.Content, "gml_Script_|gml_GlobalScript_", ""));
-                currentKeyframe.Channels.Add(channel.Key.ToString(), mom);
+                    mom.Events.Add(Regex.Replace(currentEvent.Content, "gml_Script_|gml_GlobalScript_", ""));
+                    currentKeyframe.Channels.Add(channel.Channel.ToString(), mom);
+                }
+                dumpedSequence.moments.Keyframes.Add(currentKeyframe);
             }
-            dumpedSequence.moments.Keyframes.Add(currentKeyframe);
         }
     }
+
     
     // set the stubscript
     if (evstubscript != String.Empty)
@@ -3280,7 +3296,7 @@ void DumpSequence(UndertaleSequence s, int index)
                             Length = keyframe.Length,
                             Stretch = keyframe.Stretch,
                             Disabled = keyframe.Disabled,
-                            Channels = keyframe.Channels.ToDictionary(k => k.Key.ToString(), k => new AudioKeyframe()
+                            Channels = keyframe.Channels.ToDictionary(k => k.Channel.ToString(), k => new AudioKeyframe()
                             {
                                 Mode = k.Value.Mode,
                                 Id = new AssetReference(k.Value.Resource.Resource.Name.Content, GMAssetType.Sound)
@@ -3306,7 +3322,7 @@ void DumpSequence(UndertaleSequence s, int index)
                             Length = keyframe.Length,
                             Stretch = keyframe.Stretch,
                             Disabled = keyframe.Disabled,
-                            Channels = keyframe.Channels.ToDictionary(k => k.Key.ToString(), k => new AssetInstanceKeyframe()
+                            Channels = keyframe.Channels.ToDictionary(k => k.Channel.ToString(), k => new AssetInstanceKeyframe()
                             {
                                 Id = new AssetReference(k.Value.Resource.Resource.Name.Content, GMAssetType.Object)
                             })
@@ -3316,6 +3332,35 @@ void DumpSequence(UndertaleSequence s, int index)
                     
                     break;
                 }
+
+                case "GMSpriteFramesTrack":
+                {
+                    if (spr is null)
+                        errorList.Add($"{s.Name.Content} | Track type '{track.ModelName.Content}' inside normal sequence?");
+                        
+                    currentTrack = new GMSpriteFramesTrack();
+                    var keyframes = ((UndertaleSequence.SpriteFramesKeyframes)track.Keyframes).List;
+
+                    for (int i = 0; i < keyframes.Count; i++)
+                    {
+                        var keyframe = keyframes[i];
+
+                        (currentTrack as GMSpriteFramesTrack).keyframes.Keyframes.Add(new Keyframe<SpriteFrameKeyframe>()
+                        {
+                            Key = keyframe.Key,
+                            Length = keyframe.Length,
+                            Stretch = keyframe.Stretch,
+                            Disabled = keyframe.Disabled,
+                            Channels = keyframe.Channels.ToDictionary(k => k.Channel.ToString(), k => new SpriteFrameKeyframe()
+                            {
+                                Id = new AssetReference(spr.Name.Content, GMAssetType.Sprite)
+                            })
+                        });
+                    }
+
+                    break;
+                }
+
                 case "GMGraphicTrack":
                 {
                     currentTrack = new GMGraphicTrack();
@@ -3331,7 +3376,7 @@ void DumpSequence(UndertaleSequence s, int index)
                             Length = keyframe.Length,
                             Stretch = keyframe.Stretch,
                             Disabled = keyframe.Disabled,
-                            Channels = keyframe.Channels.ToDictionary(k => k.Key.ToString(), k => new AssetSpriteKeyframe()
+                            Channels = keyframe.Channels.ToDictionary(k => k.Channel.ToString(), k => new AssetSpriteKeyframe()
                             {
                                 Id = new AssetReference(k.Value.Resource.Resource.Name.Content, GMAssetType.Sprite)
                             })
@@ -3355,7 +3400,7 @@ void DumpSequence(UndertaleSequence s, int index)
                             Length = keyframe.Length,
                             Stretch = keyframe.Stretch,
                             Disabled = keyframe.Disabled,
-                            Channels = keyframe.Channels.ToDictionary(k => k.Key.ToString(), k => new AssetSequenceKeyframe()
+                            Channels = keyframe.Channels.ToDictionary(k => k.Channel.ToString(), k => new AssetSequenceKeyframe()
                             {
                                 Id = new AssetReference(k.Value.Resource.Resource.Name.Content, GMAssetType.Sequence)
                             })
@@ -3422,7 +3467,7 @@ void DumpSequence(UndertaleSequence s, int index)
                             }
 
 
-                            currentKeyframe.Channels.Add(channel.Key.ToString(), value);
+                            currentKeyframe.Channels.Add(channel.Channel.ToString(), value);
                         }
                         ((GMRealTrack)currentTrack).keyframes.Keyframes.Add(currentKeyframe);
                     }
@@ -3486,7 +3531,7 @@ void DumpSequence(UndertaleSequence s, int index)
                                 value.EmbeddedAnimCurve = dumpedCurve;
                             }
 
-                            currentKeyframe.Channels.Add(channel.Key.ToString(), value);
+                            currentKeyframe.Channels.Add(channel.Channel.ToString(), value);
                         }
                         ((GMColourTrack)currentTrack).keyframes.Keyframes.Add(currentKeyframe);
                     }
@@ -3506,7 +3551,7 @@ void DumpSequence(UndertaleSequence s, int index)
                             Length = keyframe.Length,
                             Stretch = keyframe.Stretch,
                             Disabled = keyframe.Disabled,
-                            Channels = keyframe.Channels.ToDictionary(k => k.Key.ToString(), k => new AssetTextKeyframe()
+                            Channels = keyframe.Channels.ToDictionary(k => k.Channel.ToString(), k => new AssetTextKeyframe()
                             {
                                 Text = k.Value.Text.Content,
                                 Wrap = k.Value.Wrap,
@@ -3568,6 +3613,18 @@ void DumpSequence(UndertaleSequence s, int index)
     
     // start the recursion!
     dumpedSequence.tracks = DumpTracks(s.Tracks);
+
+    return dumpedSequence;
+}
+
+void DumpSequence(UndertaleSequence s, int index)
+{
+    string sequenceName = s.Name.Content;
+    string assetDir = $"{scriptDir}sequences\\{sequenceName}\\";
+
+    Directory.CreateDirectory(assetDir);
+
+    GMSequence dumpedSequence = SequenceDumper(s);
 
     File.WriteAllText($"{assetDir}{sequenceName}.yy", JsonSerializer.Serialize(dumpedSequence, jsonOptions));
 
