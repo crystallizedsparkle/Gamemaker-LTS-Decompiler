@@ -2145,7 +2145,7 @@ async Task DumpScripts()
 
     foreach (string def in defs)
     {
-        GameSpecificResolver.GameSpecificDefinition currentDef = JsonSerializer.Deserialize<GameSpecificResolver.GameSpecificDefinition>(File.ReadAllText(def));
+        GameSpecificResolver.GameSpecificDefinition currentDef = JsonSerializer.Deserialize<GameSpecificResolver.GameSpecificDefinition>(File.ReadAllText(def), new JsonSerializerOptions() { AllowTrailingCommas = true });
 
         foreach (GameSpecificResolver.GameSpecificCondition condition in currentDef.Conditions)
         {
@@ -2154,7 +2154,7 @@ async Task DumpScripts()
                 string macroPath = $"{macroDir}{currentDef.UnderanalyzerFilename}";
                 if (File.Exists(macroPath))
                 {
-                    MacroData macro = JsonSerializer.Deserialize<MacroData>(File.ReadAllText(macroPath));
+                    MacroData macro = JsonSerializer.Deserialize<MacroData>(File.ReadAllText(macroPath), new JsonSerializerOptions() { AllowTrailingCommas = true });
                     foreach (KeyValuePair<string, EnumData> kvp in macro.Types.Enums)
                     {
                         // builtin enums
