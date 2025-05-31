@@ -4628,7 +4628,8 @@ GlobalDecompileContext globalDecompileContext = new(Data);
 public IDecompileSettings decompilerSettings = new DecompileSettings()
 {
     CreateEnumDeclarations = false,
-    AllowLeftoverDataOnStack = true
+    AllowLeftoverDataOnStack = true,
+    IndentString = "\t"
 };
 // obtain info from the runner
 RunnerData rData = new(GetRunnerFile(rootDir));
