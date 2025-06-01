@@ -4625,11 +4625,14 @@ public string macroDir = $"{AppDomain.CurrentDomain.BaseDirectory}GameSpecificDa
 public string scriptDir = $"{rootDir}DecompiledGMS2Project\\";
 // for the decompiler
 GlobalDecompileContext globalDecompileContext = new(Data);
-public IDecompileSettings decompilerSettings = new DecompileSettings()
+public DecompileSettings decompilerSettings = new DecompileSettings()
 {
     CreateEnumDeclarations = false,
     AllowLeftoverDataOnStack = true,
-    IndentString = "\t"
+    IndentString = "\t",
+    OpenBlockBraceOnSameLine = Data.ToolInfo.DecompilerSettings.OpenBlockBraceOnSameLine,
+    RemoveSingleLineBlockBraces = Data.ToolInfo.DecompilerSettings.RemoveSingleLineBlockBraces,
+
 };
 // obtain info from the runner
 RunnerData rData = new(GetRunnerFile(rootDir));
