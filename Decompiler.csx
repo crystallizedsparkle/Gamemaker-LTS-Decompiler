@@ -2591,7 +2591,7 @@ void DumpRoom(UndertaleRoom r, int index)
                         stretch = layer.BackgroundData.Stretch,
                         animationFPS = layer.BackgroundData.AnimationSpeed,
                         animationSpeedType = (int)layer.BackgroundData.AnimationSpeedType,
-                        userdefinedAnimFPS = false
+                        userdefinedAnimFPS = true
                     };
                     break;
                 }
