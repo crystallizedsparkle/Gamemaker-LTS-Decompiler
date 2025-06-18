@@ -1684,14 +1684,20 @@ string GetRunnerFile(string fileDir)
     }
     return String.Empty;
 }
+
+public Mutex mut = new Mutex();
 /// <summary>
 /// adds a string to the log file.
 /// </summary>
 /// <param name="message"></param>
 public void PushToLog(string message)
 {
-    logList.Add($"{DateTime.UtcNow.ToLocalTime()} | " + message);
+    mut.WaitOne();
+    logFile.Flush();
+    logFile.WriteLine($"{message}");
+    mut.ReleaseMutex();
 }
+
 /// <summary>
 /// creates a new <c>GMProject.Resource</c> inside of the exported project
 /// </summary>
@@ -1733,11 +1739,6 @@ public static string CreateFilePath(string assetName, GMAssetType type)
 /// </summary>
 public void CreateGMS2FileSystem()
 {
-    // delete existing dump
-    if (Directory.Exists(scriptDir))
-        Directory.Delete(scriptDir, true);
-
-    Directory.CreateDirectory(scriptDir);
     string[] folders = new string[]
     {
         "datafiles",
@@ -2094,12 +2095,14 @@ void DumpScript(UndertaleScript s, int index)
 async Task DumpScripts()
 {
     var watch = Stopwatch.StartNew();
+    PushToLog($"Dumping scripts...");
     if (config["Dump Scripts"])
     {
         await Task.Run(() => Parallel.ForEach(scriptsToDump, parallelOptions, (scr, state, index) =>
         {
             if (scr is null) return;
             var assetWatch = Stopwatch.StartNew();
+            if (config["Log Every Asset"]) PushToLog($"Dumping script '{scr.Name.Content}'...");
             DumpScript(scr, (int)index);
             assetWatch.Stop();
             if (config["Log Every Asset"]) PushToLog($"'{scr.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
@@ -2337,15 +2340,19 @@ void DumpObject(UndertaleGameObject o, int index)
 async Task DumpObjects()
 {
     if (!config["Dump Objects"]) return;
+
     var watch = Stopwatch.StartNew();
+    PushToLog($"Dumping objects...");
     await Task.Run(() => Parallel.ForEach(Data.GameObjects, parallelOptions, (obj, state, index) =>
     {
         if (obj is null) return;
         var assetWatch = Stopwatch.StartNew();
+        if (config["Log Every Asset"]) PushToLog($"Dumping object '{obj.Name.Content}'...");
         DumpObject(obj, (int)index);
         assetWatch.Stop();
-        if (config["Log Every Asset"]) PushToLog($"'{obj.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
+        if (config["Log Every Asset"]) PushToLog($"Object '{obj.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
     }));
+
     watch.Stop();
     PushToLog($"Objects complete! Took {watch.ElapsedMilliseconds} ms");
 }
@@ -2516,15 +2523,19 @@ public void DumpSound(UndertaleSound s, int index)
 async Task DumpSounds()
 {
     if (!config["Dump Sounds"]) return;
+
     var watch = Stopwatch.StartNew();
+    PushToLog($"Dumping sounds...");
     await Task.Run(() => Parallel.ForEach(Data.Sounds, parallelOptions, (snd, state, index) =>
     {
         if (snd is null) return;
         var assetWatch = Stopwatch.StartNew();
+        if (config["Log Every Asset"]) PushToLog($"Dumping sound '{snd.Name.Content}'...");
         DumpSound(snd, (int)index);
         assetWatch.Stop();
         if (config["Log Every Asset"]) PushToLog($"'{snd.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
     }));
+
     watch.Stop();
     PushToLog($"Sounds complete! Took {watch.ElapsedMilliseconds} ms");
 }
@@ -2870,11 +2881,14 @@ async Task DumpRooms()
 {
     if (!config["Dump Rooms"])
         return;
+
     var watch = Stopwatch.StartNew();
+    PushToLog($"Dumping rooms...");
     await Task.Run(() => Parallel.ForEach(Data.Rooms, parallelOptions, (rm, state, index) =>
     {
         if (rm is null) return;
         var assetWatch = Stopwatch.StartNew();
+        if (config["Log Every Asset"]) PushToLog($"Dumping room '{rm.Name.Content}'...");
         DumpRoom(rm, (int)index);
         assetWatch.Stop();
         if (config["Log Every Asset"]) PushToLog($"'{rm.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
@@ -3076,15 +3090,19 @@ async Task DumpSprites()
 {
     if (!config["Dump Sprites"])
         return;
+    
     var watch = Stopwatch.StartNew();
+    PushToLog($"Dumping sprites...");
     await Task.Run(() => Parallel.ForEach(Data.Sprites, parallelOptions, (spr, state, index) =>
     {
         if (spr is null) return;
         var assetWatch = Stopwatch.StartNew();
+        if (config["Log Every Asset"]) PushToLog($"Dumping sprite '{spr.Name.Content}'...");
         DumpSprite(spr, (int)index);
         assetWatch.Stop();
         if (config["Log Every Asset"]) PushToLog($"'{spr.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
     }));
+
     watch.Stop();
     PushToLog($"Sprites complete! Took {watch.ElapsedMilliseconds} ms");
 }
@@ -3171,16 +3189,21 @@ void DumpFont(UndertaleFont f, int index)
 
 async Task DumpFonts()
 {
-    if (!config["Dump Fonts"]) return;
+    if (!config["Dump Fonts"])
+        return;
+    
     var watch = Stopwatch.StartNew();
+    PushToLog($"Dumping fonts...");
     await Task.Run(() => Parallel.ForEach(Data.Fonts, parallelOptions, (fnt, state, index) =>
     {
         if (fnt is null) return;
         var assetWatch = Stopwatch.StartNew();
+        if (config["Log Every Asset"]) PushToLog($"Dumping font '{fnt.Name.Content}'...");
         DumpFont(fnt, (int)index);
         assetWatch.Stop();
         if (config["Log Every Asset"]) PushToLog($"'{fnt.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
     }));
+
     watch.Stop();
     PushToLog($"Fonts complete! Took {watch.ElapsedMilliseconds} ms");
 }
@@ -3637,15 +3660,19 @@ async Task DumpSequences()
 {
     if (!config["Dump Sequences"])
         return;
+    
     var watch = Stopwatch.StartNew();
+    PushToLog($"Dumping sequences...");
     await Task.Run(() => Parallel.ForEach(Data.Sequences, (seq, state, index) =>
     {
         if (seq is null) return;
         var assetWatch = Stopwatch.StartNew();
+        if (config["Log Every Asset"]) PushToLog($"Dumping '{seq.Name.Content}'...");
         DumpSequence(seq, (int)index);
         assetWatch.Stop();
         if (config["Log Every Asset"]) PushToLog($"'{seq.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
     }));
+
     watch.Stop();
     PushToLog($"Sequences complete! Took {watch.ElapsedMilliseconds} ms");
 }
@@ -3693,16 +3720,21 @@ void DumpShader(UndertaleShader s, int index)
 
 async Task DumpShaders()
 {
-    if (!config["Dump Shaders"]) return;
+    if (!config["Dump Shaders"])
+        return;
+    
     var watch = Stopwatch.StartNew();
+    PushToLog($"Dumping shaders...");
     await Task.Run(() => Parallel.ForEach(Data.Shaders, parallelOptions, (shd, state, index) =>
     {
         if (shd is null) return;
         var assetWatch = Stopwatch.StartNew();
+        if (config["Log Every Asset"]) PushToLog($"Dumping shader '{shd.Name.Content}'...");
         DumpShader(shd, (int)index);
         assetWatch.Stop();
-        if (config["Log Every Asset"]) PushToLog($"'{shd.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
+        if (config["Log Every Asset"]) PushToLog($"Shader '{shd.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
     }));
+
     watch.Stop();
     PushToLog($"Shaders complete! Took {watch.ElapsedMilliseconds} ms");
 }
@@ -3834,13 +3866,16 @@ async Task DumpExtensions()
 {
     if (!config["Dump Extensions"])
         return;
+
     var watch = Stopwatch.StartNew();
+    PushToLog($"Dumping extensions...");
     await Task.Run(() => Parallel.ForEach(Data.Extensions, parallelOptions, (ext, state, index) =>
     {
         if (ext is null) return;
         var assetWatch = Stopwatch.StartNew();
+        if (config["Log Every Asset"]) PushToLog($"Dumping extension '{ext.Name.Content}'...");
         DumpExtension(ext, (int)index);
-        if (config["Log Every Asset"]) PushToLog($"'{ext.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
+        if (config["Log Every Asset"]) PushToLog($"Extension '{ext.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
     }));
 
     #region gml extension
@@ -3940,15 +3975,19 @@ async Task DumpPaths()
 {
     if (!config["Dump Paths"])
         return;
+    
     var watch = Stopwatch.StartNew();
+    PushToLog($"Dumping paths...");
     await Task.Run(() => Parallel.ForEach(Data.Paths, parallelOptions, (pth, state, index) =>
     {
         if (pth is null) return;
         var assetWatch = Stopwatch.StartNew();
+        if (config["Log Every Asset"]) PushToLog($"Dumping path '{pth.Name.Content}'...");
         DumpPath(pth, (int)index);
         assetWatch.Stop();
-        if (config["Log Every Asset"]) PushToLog($"'{pth.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
+        if (config["Log Every Asset"]) PushToLog($"Path '{pth.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
     }));
+
     watch.Stop();
     PushToLog($"Paths complete! Took {watch.ElapsedMilliseconds} ms");
 }
@@ -3992,17 +4031,21 @@ async Task DumpAnimCurves()
 {
     if (!config["Dump Animation Curves"])
         return;
+
     var watch = Stopwatch.StartNew();
+    PushToLog($"Dumping animation curves...");
     await Task.Run(() => Parallel.ForEach(Data.AnimationCurves, parallelOptions, (cur, state, index) =>
     {
         if (cur is null) return;
         var assetWatch = Stopwatch.StartNew();
+        if (config["Log Every Asset"]) PushToLog($"Dumping animation curve '{cur.Name.Content}'...");
         DumpAnimCurve(cur, (int)index);
         assetWatch.Stop();
-        if (config["Log Every Asset"]) PushToLog($"'{cur.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
+        if (config["Log Every Asset"]) PushToLog($"Animation curve '{cur.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
     }));
+
     watch.Stop();
-    PushToLog($"Animation Curves complete! Took {watch.ElapsedMilliseconds} ms");
+    PushToLog($"Animation curves complete! Took {watch.ElapsedMilliseconds} ms");
 }
 void DumpTileSet(UndertaleBackground t, int index)
 {
@@ -4230,17 +4273,21 @@ async Task DumpTileSets()
 {
     if (!config["Dump Tile Sets"])
         return;
+    
     var watch = Stopwatch.StartNew();
+    PushToLog($"Dumping tilesets...");
     await Task.Run(() => Parallel.ForEach(Data.Backgrounds, parallelOptions, (ts, state, index) =>
     {
         if (ts is null) return;
         var assetWatch = Stopwatch.StartNew();
+        if (config["Log Every Asset"]) PushToLog($"Dumping tileset '{ts.Name.Content}'...");
         DumpTileSet(ts, (int)index);
         assetWatch.Stop();
-        if (config["Log Every Asset"]) PushToLog($"'{ts.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
+        if (config["Log Every Asset"]) PushToLog($"Tileset '{ts.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
     }));
+
     watch.Stop();
-    PushToLog($"TileSets complete! Took {watch.ElapsedMilliseconds} ms");
+    PushToLog($"Tilesets complete! Took {watch.ElapsedMilliseconds} ms");
 }
 
 void DumpTimeline(UndertaleTimeline t, int index)
@@ -4288,15 +4335,19 @@ async Task DumpTimelines()
 {
     if (!config["Dump Timelines"])
         return;
+    
     var watch = Stopwatch.StartNew();
+    PushToLog($"Dumping timelines...");
     await Task.Run(() => Parallel.ForEach(Data.Timelines, parallelOptions, (tl, state, index) =>
     {
         if (tl is null) return;
         var assetWatch = Stopwatch.StartNew();
+        if (config["Log Every Asset"]) PushToLog($"Dumping timeline '{tl.Name.Content}'...");
         DumpTimeline(tl, (int)index);
         assetWatch.Stop();
-        if (config["Log Every Asset"]) PushToLog($"'{tl.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
+        if (config["Log Every Asset"]) PushToLog($"Timeline '{tl.Name.Content}' successfully dumped in {assetWatch.ElapsedMilliseconds} ms.");
     }));
+
     watch.Stop();
     PushToLog($"Timelines complete! Took {watch.ElapsedMilliseconds} ms");
 }
@@ -4623,6 +4674,14 @@ public string definitionDir = $"{AppDomain.CurrentDomain.BaseDirectory}GameSpeci
 public string macroDir = $"{AppDomain.CurrentDomain.BaseDirectory}GameSpecificData\\Underanalyzer\\";
 // the folder the project is exported to
 public string scriptDir = $"{rootDir}DecompiledGMS2Project\\";
+
+// delete existing dump
+if (Directory.Exists(scriptDir))
+    Directory.Delete(scriptDir, true);
+
+Directory.CreateDirectory(scriptDir);
+public StreamWriter logFile = File.AppendText(scriptDir + "script.log");
+
 // for the decompiler
 GlobalDecompileContext globalDecompileContext = new(Data);
 public DecompileSettings decompilerSettings = new DecompileSettings()
@@ -4665,8 +4724,8 @@ public int toDump =
          (config["Dump Paths"] ? Data.Paths.Count : 0) +
           (config["Dump Animation Curves"] ? Data.AnimationCurves.Count : 0) +
            (config["Dump Tile Sets"] ? (Data.Backgrounds.Count*2) : 0) + 
-            (config["Dump Sequences"] ? (Data.Sequences.Count) : 0) + 
-             (config["Dump Timelines"] ? (Data.Timelines.Count) : 0);
+            (config["Dump Sequences"] ? Data.Sequences.Count : 0) + 
+             (config["Dump Timelines"] ? Data.Timelines.Count : 0);
 
 SetUMTConsoleText("Initializing...");
 
@@ -4815,8 +4874,6 @@ PushToLog($"All assets complete! Took {totalTime.ElapsedMilliseconds} ms");
 
 if (errorList.Count > 0)
     File.WriteAllLines(scriptDir + "errors.log", errorList);
-
-File.WriteAllLines(scriptDir + "script.log", logList);
 
 ScriptMessage($"Script done!\n{errorList.Count} error{(errorList.Count == 1 ? "" : "s")}. Make sure to handle the 'datafiles' directory!");
 
