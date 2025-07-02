@@ -3241,7 +3241,7 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
         };
         foreach (var channel in broadcastMessage.Channels)
         {
-            currentKeyframe.Channels.Add(channel.Key.ToString(), new MessageEventKeyframe() { Events = channel.Value.Messages.Select(message => message.Content).ToArray() });
+            currentKeyframe.Channels.Add(channel.Channel.ToString(), new MessageEventKeyframe() { Events = channel.Value.Messages.Select(message => message.Content).ToArray() });
         }
         dumpedSequence.events.Keyframes.Add(currentKeyframe);
     }
@@ -3262,8 +3262,13 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
             };
             foreach (var channel in moment.Channels)
             {
+                UndertaleString? currentEvent = null;
                 MomentsEventKeyframe mom = new();
-                UndertaleString currentEvent = channel.Value.Event;
+                if (channel.Value.Events.Count > 1)
+                    PushToLog("more than one moment in a single keyframe! report this!");
+                else if (channel.Value.Events.Count < 1)
+                    currentEvent = channel.Value.Events[0];
+                        
                 // if it exists
                 if (currentEvent is not null)
                 {
@@ -3273,7 +3278,7 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
                         evstubscript = Regex.Replace(scriptData.Code.ParentEntry.Name.Content, "gml_Script_|gml_GlobalScript_", "");
 
                     mom.Events.Add(Regex.Replace(currentEvent.Content, "gml_Script_|gml_GlobalScript_", ""));
-                    currentKeyframe.Channels.Add(channel.Key.ToString(), mom);
+                    currentKeyframe.Channels.Add(channel.Channel.ToString(), mom);
                 }
                 dumpedSequence.moments.Keyframes.Add(currentKeyframe);
             }
@@ -3286,7 +3291,7 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
         dumpedSequence.eventStubScript = new AssetReference(evstubscript, GMAssetType.Script);
 
     // eventToFunction stuff
-    dumpedSequence.eventToFunction = s.FunctionIDs.ToDictionary(e => e.Key.ToString(), f => Regex.Replace(f.Value.Content, "gml_Script_|gml_GlobalScript_", ""));
+    dumpedSequence.eventToFunction = s.FunctionIDs.ToDictionary(e => e.ID.ToString(), f => Regex.Replace(f.FunctionName.Content, "gml_Script_|gml_GlobalScript_", ""));
 
     // need to make this a function because tracks can appear recursively!
     // for some reason the recursed tracks are in a normal list instead of an UndertaleSimpleList??
@@ -3319,7 +3324,7 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
                             Length = keyframe.Length,
                             Stretch = keyframe.Stretch,
                             Disabled = keyframe.Disabled,
-                            Channels = keyframe.Channels.ToDictionary(k => k.Key.ToString(), k => new AudioKeyframe()
+                            Channels = keyframe.Channels.ToDictionary(k => k.Channel.ToString(), k => new AudioKeyframe()
                             {
                                 Mode = k.Value.Mode,
                                 Id = new AssetReference(k.Value.Resource.Resource.Name.Content, GMAssetType.Sound)
@@ -3345,7 +3350,7 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
                             Length = keyframe.Length,
                             Stretch = keyframe.Stretch,
                             Disabled = keyframe.Disabled,
-                            Channels = keyframe.Channels.ToDictionary(k => k.Key.ToString(), k => new AssetInstanceKeyframe()
+                            Channels = keyframe.Channels.ToDictionary(k => k.Channel.ToString(), k => new AssetInstanceKeyframe()
                             {
                                 Id = new AssetReference(k.Value.Resource.Resource.Name.Content, GMAssetType.Object)
                             })
@@ -3374,7 +3379,7 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
                             Length = keyframe.Length,
                             Stretch = keyframe.Stretch,
                             Disabled = keyframe.Disabled,
-                            Channels = keyframe.Channels.ToDictionary(k => k.Key.ToString(), k => new SpriteFrameKeyframe()
+                            Channels = keyframe.Channels.ToDictionary(k => k.Channel.ToString(), k => new SpriteFrameKeyframe()
                             {
                                 Id = new AssetReference(spr.Name.Content, GMAssetType.Sprite)
                             })
@@ -3399,7 +3404,7 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
                             Length = keyframe.Length,
                             Stretch = keyframe.Stretch,
                             Disabled = keyframe.Disabled,
-                            Channels = keyframe.Channels.ToDictionary(k => k.Key.ToString(), k => new AssetSpriteKeyframe()
+                            Channels = keyframe.Channels.ToDictionary(k => k.Channel.ToString(), k => new AssetSpriteKeyframe()
                             {
                                 Id = new AssetReference(k.Value.Resource.Resource.Name.Content, GMAssetType.Sprite)
                             })
@@ -3423,7 +3428,7 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
                             Length = keyframe.Length,
                             Stretch = keyframe.Stretch,
                             Disabled = keyframe.Disabled,
-                            Channels = keyframe.Channels.ToDictionary(k => k.Key.ToString(), k => new AssetSequenceKeyframe()
+                            Channels = keyframe.Channels.ToDictionary(k => k.Channel.ToString(), k => new AssetSequenceKeyframe()
                             {
                                 Id = new AssetReference(k.Value.Resource.Resource.Name.Content, GMAssetType.Sequence)
                             })
@@ -3490,7 +3495,7 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
                             }
 
 
-                            currentKeyframe.Channels.Add(channel.Key.ToString(), value);
+                            currentKeyframe.Channels.Add(channel.Channel.ToString(), value);
                         }
                         ((GMRealTrack)currentTrack).keyframes.Keyframes.Add(currentKeyframe);
                     }
@@ -3500,7 +3505,7 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
                 case "GMColourTrack":
                 {
                     currentTrack = new GMColourTrack();
-                    var keyframes = ((UndertaleSequence.RealKeyframes)track.Keyframes).List;
+                    var keyframes = ((UndertaleSequence.IntKeyframes)track.Keyframes).List;
                     
                     foreach (var keyframe in keyframes)
                     {
@@ -3517,7 +3522,8 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
                             // set the value lol
                             ColourKeyframe value = new()
                             {
-                                Colour = (uint)eColour.HALFALPHA_White,//Convert.ToUInt32(channel.Value.Value),
+                                // cast into uint
+                                Colour = unchecked((uint)channel.Value.Value),
                                 AnimCurveId = (channel.Value.AssetAnimCurve is not null && channel.Value.AssetAnimCurve.Resource is not null ? new AssetReference(channel.Value.AssetAnimCurve.Resource.Name.Content, GMAssetType.AnimationCurve) : null)
                             };
 
@@ -3554,7 +3560,7 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
                                 value.EmbeddedAnimCurve = dumpedCurve;
                             }
 
-                            currentKeyframe.Channels.Add(channel.Key.ToString(), value);
+                            currentKeyframe.Channels.Add(channel.Channel.ToString(), value);
                         }
                         ((GMColourTrack)currentTrack).keyframes.Keyframes.Add(currentKeyframe);
                     }
@@ -3574,7 +3580,7 @@ GMSequence SequenceDumper(UndertaleSequence s, UndertaleSprite spr = null)
                             Length = keyframe.Length,
                             Stretch = keyframe.Stretch,
                             Disabled = keyframe.Disabled,
-                            Channels = keyframe.Channels.ToDictionary(k => k.Key.ToString(), k => new AssetTextKeyframe()
+                            Channels = keyframe.Channels.ToDictionary(k => k.Channel.ToString(), k => new AssetTextKeyframe()
                             {
                                 Text = k.Value.Text.Content,
                                 Wrap = k.Value.Wrap,
