@@ -9,6 +9,8 @@
     made as a personal goal
 
     do not use this with malice.
+
+    this decompiler is relatively outdated, I have rewritten a majority of this.
 */
 
 using System;
@@ -1810,29 +1812,23 @@ public List<GMObjectProperty> CreateObjectProperties(UndertalePointerList<Undert
     // if theres none just return the empty list
     if (eventList is null)
         return propList;
-
-    foreach (UndertaleGameObject.Event e in eventList)
+    
+    if (eventList.Count >= 1 && eventList[0].Actions.Count >= 1)
     {
-        foreach (UndertaleGameObject.EventAction action in e.Actions)
+        // dump the properties
+        string dumpedCode = DumpCode(eventList[0].Actions[0].CodeId, new DecompileSettings { UseSemicolon = false, AllowLeftoverDataOnStack = true });
+
+        // add them
+        foreach (Match match in assignmentRegex.Matches(dumpedCode))
         {
-            UndertaleCode code = action.CodeId;
-
-            string dumpedCode = String.Empty;
-
-            // dump the properties
-            dumpedCode = DumpCode(code, new DecompileSettings { UseSemicolon = false, AllowLeftoverDataOnStack = true });
-
-            // add them
-            foreach (Match match in assignmentRegex.Matches(dumpedCode))
+            propList.Add(new GMObjectProperty(match.Groups[1].Captures[0].Value)
             {
-                propList.Add(new GMObjectProperty(match.Groups[1].Captures[0].Value)
-                {
-                    value = match.Groups[2].Captures[0].Value,
-                    varType = 4,
-                });
-            }
+                value = match.Groups[2].Captures[0].Value,
+                varType = 4,
+            });
         }
     }
+
     return propList;
 }
 
